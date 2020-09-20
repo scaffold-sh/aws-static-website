@@ -1,0 +1,8 @@
+{
+  "name": "AWS Static Website",
+  "provider": "aws",
+  "type": "aws_static_website",
+  "version:": "1.0.0",
+  "source_url": "https://github.com/scaffold-sh/aws-static-website",
+  "docs_url": "https://scaffold.sh/docs/infrastructures/aws/static-website"
+}

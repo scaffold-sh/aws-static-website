@@ -1,0 +1,22 @@
+# Running on Ubuntu 18.04 (aws/codebuild/standard:1.0)
+# https://github.com/aws/aws-codebuild-docker-images/blob/master/ubuntu/standard/1.0/Dockerfile
+version: 0.2
+
+env:
+  variables:
+    AWS_S3_WEBSITE_BUCKET: ""
+    AWS_CLOUDFRONT_DISTRIB_ID: ""
+    BUILD_COMMAND: ""
+    BUILD_OUTPUT: ""
+
+phases:
+  pre_build:
+    commands:
+      - echo "No pre build commands"
+  build:
+    commands:
+      - eval $BUILD_COMMAND
+  post_build:
+    commands:
+      - aws s3 sync --delete $BUILD_OUTPUT s3://$AWS_S3_WEBSITE_BUCKET
+      - aws cloudfront create-invalidation --distribution-id $AWS_CLOUDFRONT_DISTRIB_ID --paths '/*'

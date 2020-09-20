@@ -1,0 +1,9 @@
+dist
+node_modules
+out
+terraform.tfstate*
+src/imports
+.terraform
+.DS_Store
+.env.local
+.env.*.local
