@@ -5,7 +5,7 @@
 <h1 align="center">AWS Static Website</h1>
 
 <h4 align="center">
-  <a href="https://scaffold.sh/docs">Documentation</a> |
+  <a href="https://scaffold.sh/docs/infrastructures/aws/serverless-docker">Documentation</a> |
   <a href="https://scaffold.sh">Website</a> |
   <a href="https://medium.com/scaffold">Blog</a> |
   <a href="https://twitter.com/scaffold_sh">Twitter</a> |
@@ -35,6 +35,8 @@ Given that the S3 website endpoints do not support HTTPS, this infrastructure us
 
 To use an ACM certificate with Amazon CloudFront, the certificate [must be requested](https://docs.aws.amazon.com/acm/latest/userguide/acm-regions.html) in the US East (N. Virginia) region.
 
+This infrastructure also uses **[SSM Parameters Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)** to store your build environment variables.
+
 ![](/assets/schema.png)
 
 ### Requirements
@@ -55,8 +57,8 @@ To use an ACM certificate with Amazon CloudFront, the certificate [must be reque
     </thead>
     <tbody>
         <tr>
-            <td><b><a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html">S3</a></b> <sup>(two buckets)</sup><br/>S3 will be used to store your website source code and your pipeline artifacts.</td>
-            <td><a href="https://github.com/scaffold-sh/aws-static-website/blob/master/src/lib/constructs/staticWebsite/bucket.ts">src/lib/constructs/staticWebsite/bucket.ts</a><br /><a href="https://github.com/scaffold-sh/aws-static-website/blob/master/src/lib/constructs/continuousDeployment/index.ts">src/lib/constructs/continuousDeployment/index.ts</a></td>
+            <td><b><a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html">S3</a></b> <sup>(one bucket)</sup><br/>S3 will be used to store your website source code.</td>
+            <td><a href="https://github.com/scaffold-sh/aws-static-website/blob/master/src/lib/constructs/staticWebsite/bucket.ts">src/lib/constructs/staticWebsite/bucket.ts</a></td>
           <td><b>Usage</b></td>
         </tr>
         <tr>
@@ -78,6 +80,11 @@ To use an ACM certificate with Amazon CloudFront, the certificate [must be reque
             <td><b><a href="https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html">ACM</a></b> <sup>(one certificate)</sup><br />ACM will be used to manage the SSL certificate of your website.</td>
             <td><a href="https://github.com/scaffold-sh/aws-static-website/blob/master/src/lib/constructs/staticWebsite/ssl.ts">src/lib/constructs/staticWebsite/ssl.ts</a></td>
           <td><b>Free</b></td>
+        </tr>
+        <tr>
+            <td><b><a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html">SSM</a></b> <sup>(one parameter store)</sup><br />SSM Parameter Store will be used to store the environment variables of your builds.</td>
+            <td><a href="https://github.com/scaffold-sh/aws-static-website/blob/master/src/lib/constructs/staticWebsite/environmentVariables.ts">src/lib/constructs/computing/environmentVariables.ts</a></td>
+          <td><b>Usage</b></td>
         </tr>
     </tbody>
 </table>
@@ -104,9 +111,17 @@ These environment variables will be **automatically** configured each time you c
 
 <tr>
 
-<th scope="row">ENABLE_HTTPS</th>
+<th scope="row">BUILD_COMMAND</th>
 
-<td>We need to wait for the ACM certificate to be "issued" to enable HTTPS. See the "<a href="https://scaffold.sh/docs/infrastructures/aws/static-website/after-install">after install</a>" section to learn more.</td>
+<td>The command that needs to be run to build your website (e.g. npm i && npm run build) (optional).</td>
+
+</tr>
+
+<tr>
+
+<th scope="row">BUILD_OUTPUT_DIR</th>
+
+<td>The directory where the build command output your website (e.g. build/) (optional).</td>
 
 </tr>
 
@@ -120,33 +135,9 @@ These environment variables will be **automatically** configured each time you c
 
 <tr>
 
-<th scope="row">BUILD_COMMAND</th>
+<th scope="row">ENABLE_HTTPS</th>
 
-<td>The command that needs to be run to build your website (e.g. npm i && npm run build) (optional)</td>
-
-</tr>
-
-<tr>
-
-<th scope="row">BUILD_OUTPUT_DIR</th>
-
-<td>The directory where the build command output your website (e.g. build/) (optional)</td>
-
-</tr>
-
-<tr>
-
-<th scope="row">GITHUB_REPO_OWNER</th>
-
-<td>The owner of your GitHub repository. Can be a regular user or an organization.</td>
-
-</tr>
-
-<tr>
-
-<th scope="row">GITHUB_REPO</th>
-
-<td>The GitHub repository that contains your source code.</td>
+<td>We need to wait for the ACM certificate to be "issued" to enable HTTPS. See the "<a href="https://scaffold.sh/docs/infrastructures/aws/static-website/after-install">after install</a>" section to learn more.</td>
 
 </tr>
 
@@ -163,6 +154,22 @@ These environment variables will be **automatically** configured each time you c
 <th scope="row">GITHUB_OAUTH_TOKEN</th>
 
 <td>The GitHub OAuth token that will be used by CodePipeline to pull your source code from your repository.</td>
+
+</tr>
+
+<tr>
+
+<th scope="row">GITHUB_REPO</th>
+
+<td>The GitHub repository that contains your source code.</td>
+
+</tr>
+
+<tr>
+
+<th scope="row">GITHUB_REPO_OWNER</th>
+
+<td>The owner of your GitHub repository. Can be a regular user or an organization.</td>
 
 </tr>
 
@@ -198,14 +205,6 @@ These environment variables will be **automatically** configured each time you c
 
 <tr>
 
-<th scope="row">SCAFFOLD_RESOURCE_NAMES_PREFIX</th>
-
-<td>An unique custom prefix used to avoid name colision with existing resources.</td>
-
-</tr>
-
-<tr>
-
 <th scope="row">SCAFFOLD_AWS_PROFILE</th>
 
 <td>The AWS named profile used to create your infrastructure.</td>
@@ -230,6 +229,14 @@ These environment variables will be **automatically** configured each time you c
 
 <tr>
 
+<th scope="row">SCAFFOLD_AWS_S3_BACKEND_DYNAMODB_TABLE</th>
+
+<td>The AWS DynamoDB table that will be used to store the Terraform state locks.</td>
+
+</tr>
+
+<tr>
+
 <th scope="row">SCAFFOLD_AWS_S3_BACKEND_KEY</th>
 
 <td>The S3 bucket key under which your Terraform state will be saved.</td>
@@ -238,9 +245,9 @@ These environment variables will be **automatically** configured each time you c
 
 <tr>
 
-<th scope="row">SCAFFOLD_AWS_S3_BACKEND_DYNAMODB_TABLE</th>
+<th scope="row">SCAFFOLD_RESOURCE_NAMES_PREFIX</th>
 
-<td>The AWS DynamoDB table that will be used to store the Terraform state locks.</td>
+<td>An unique custom prefix used to avoid name colision with existing resources.</td>
 
 </tr>
 
@@ -250,19 +257,17 @@ These environment variables will be **automatically** configured each time you c
 
 ## After install
 
-### How do I set up my domain name and HTTPS?
+**CloudFront will display a placeholder index file until the end of the first deployment.**
 
-This infrastructure exports two Terraform outputs: `ssl_validation_dns_records` and `website_url`
+This infrastructure exports three Terraform outputs: `cloudfront_distribution_uri`, `pipeline_execution_details_url` and `ssl_validation_dns_records`.
 
-The `ssl_validation_dns_records` output value contains the DNS records that you need to set in order to validate your ACM certificate.
+The `cloudfront_distribution_uri` output value contains the URI of your CloudFront distribution. You could use it to access your website while your DNS are propagating.
 
-Once set, you will need to [wait for the status](https://console.aws.amazon.com/acm/home?region=us-east-1#/) of your certificate to switch from "pending" to "issued" to use it with CloudFront.
+The `pipeline_execution_details_url` output values contains the URL of your pipeline executions details.
 
-You could then set the `ENABLE_HTTPS` environment variable to "true" in your local env file and run the `scaffold apply` command to update your infrastructure.
+The `ssl_validation_dns_records` output value contains the DNS records that you need to set in order to validate your ACM certificate (see below).
 
-If you want to automate this process, you could use AWS Route 53 as your domain host then use the `aws_route53_record` and `aws_acm_certificate_validation` resources to wait for certificate validation. See the [Terraform documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate_validation) to learn more.
-
-The `website_url` output value contains the URL of your CloudFront distribution. You could use it to access your website while waiting for DNS to propagate.
+### How do I set up my domain name?
 
 The way you will set up your domain name will vary according to the presence or absence of a subdomain.
 
@@ -270,91 +275,70 @@ If your domain name doesn't have any subdomains, you will need to add two DNS re
 
 - **Name:** <empty> or @
 - **Type:** ALIASE, ANAME or CNAME
-- **Value:** the URL of your CloudFront distribution
+- **Value:** `cloudfront_distribution_uri`
 
 <p></p>
 
 - **Name:** www
 - **Type:** CNAME
-- **Value:** the URL of your CloudFront distribution
+- **Value:** `cloudfront_distribution_uri`
 
-If your domain name has a subdomain, you will need to add a CNAME record:
+If your domain name has a subdomain, you will need to add one CNAME record:
 
 - **Name:** subdomain
 - **Type:** CNAME
-- **Value:** the URL of your CloudFront distribution
+- **Value:** `cloudfront_distribution_uri`
 
-### How do I customize the build steps of my website?
+### How do I set up HTTPS?
 
-[CodeBuild uses a buildspec.yml file](https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html) to describe all the build steps that your website requires.
+The `ssl_validation_dns_records` output value contains the DNS records that you need to set in order to validate your ACM certificate.
 
-This file is located in the `templates` directory at the root of your infrastructure:
+Once set, you will need to [wait for the status](https://console.aws.amazon.com/acm/home?region=us-east-1#/) of your certificate to switch from "pending" to "issued" to use it with your application load balancer.
+
+You could then set the `ENABLE_HTTPS` environment variable to "true" in your local env file and run the `scaffold apply` command to update your infrastructure.
+
+If you want to automate this process, you could use AWS Route 53 as your domain host then use the `aws_route53_record` and `aws_acm_certificate_validation` resources to wait for certificate validation. See the [Terraform documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate_validation) to learn more.
+
+### How do I customize the build stage of my pipeline?
+
+[CodeBuild uses a YAML file](https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html) to describe all the steps that a stage requires. This file is located in the <kbd>templates</kbd> directory at the root of your infrastructure:
+
+```env
+# ./templates                                  
+buildspec.yml
+```
+
+You could update this file directly to customize your pipeline build stage.
+
+### How do I add environment variables to the build stage?
+
+To add an environment variable to the build stage all you have to do is to add an environment variable that starts with `BUILD_` to your infrastructure code.
+
+For example, let's say that you want to add a `TOKEN` variable to your build. You will first add it to your `.env` file:
+
+```env
+# .env
+BUILD_TOKEN=
+```
+
+Then, given that this value is secret you choose to define it in your local env file:
+
+```env
+# .env.{environment}.local
+BUILD_TOKEN=MY_SECRET_TOKEN
+```
+
+One done, you could access your environment variables in all your buildspec file:
 
 ```yaml
-# ./templates/buildspec.yml
-version: 0.2
+# templates/buildspec.yml
 
-env:
-  variables:
-    AWS_S3_WEBSITE_BUCKET: ""
-    AWS_CLOUDFRONT_DISTRIB_ID: ""
-    BUILD_COMMAND: ""
-    BUILD_OUTPUT: ""
+version: 0.2
 
 phases:
   pre_build:
     commands:
-      - echo "No pre build commands"
-  build:
-    commands:
-      - eval $BUILD_COMMAND
-  post_build:
-    commands:
-      # Update your website S3 bucket with modified files
-      - aws s3 sync --delete $BUILD_OUTPUT s3://$AWS_S3_WEBSITE_BUCKET
-      # Invalidate CloudFront cache to serve new files
-      - aws cloudfront create-invalidation --distribution-id $AWS_CLOUDFRONT_DISTRIB_ID --paths '/*'
+      - echo $TOKEN
 ```
 
-And customized in the build construct:
-
-
-```typescript
-// ./src/lib/constructs/continuousDeployment/build.ts
-
-// ...
-
-const buildspec = readFileSync(resolve(__dirname, "..", "..", "..", "..", "templates", "buildspec.yml")).toString()
-const parsedBuildSpec = YAML.parse(buildspec)
-
-parsedBuildSpec.env.variables.AWS_S3_WEBSITE_BUCKET = props.websiteS3Bucket.bucket
-parsedBuildSpec.env.variables.AWS_CLOUDFRONT_DISTRIB_ID = Token.asString(props.cloudfrontDistrib.id)
-
-parsedBuildSpec.env.variables.BUILD_COMMAND = props.buildCommand
-parsedBuildSpec.env.variables.BUILD_OUTPUT = props.buildOutput
-```
-
-You could add YAML code directly in the buildspec file or customize it using TS code. It's up to you.
-
-### How do I move the buildspec file from the templates directory to my repository?
-
-If you want to move the buildspec file into your repository, you need to update the `buildspec` property of your build project with the path of the file relative to the root of your repository:
-
-```typescript
-// ./src/lib/constructs/continuousDeployment/build.ts
-
-this.project = new CodebuildProject(this, "build_project", {
-  // ...
-
-  source: [{
-    // If you have a 'buildspec.yml' file 
-    // at the root of your repository.
-    buildspec: "buildspec.yml",
-    type: "CODEPIPELINE"
-  }],
-
-  // ...
-})
-```
-
-You could also remove the associated `BUILD_COMMAND` and `BUILD_OUTPUT_DIR` environment variables as well as the TS code that customize the buildspec file.
+Remember to run the `scaffold apply` command each time you update your infrastructure code.
