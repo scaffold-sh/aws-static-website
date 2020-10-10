@@ -6,7 +6,6 @@ import {
   Codepipeline,
   CodepipelineWebhook,
   DataAwsIamPolicyDocument,
-  DataAwsRegion,
   IamRole,
   IamRolePolicy,
   S3Bucket,
@@ -18,7 +17,7 @@ import * as Null from "../../../imports/providers/null"
  * Represents the properties of the pipeline construct.
  * @property awsProfile The AWS named profile used to create your infrastructure.
  * @property codebuildProject The CodeBuild project used to build and deploy your website.
- * @property currentRegion The AWS region used to create your infrastructure.
+ * @property currentRegionAsString The AWS region used to create your infrastructure as string.
  * @property githubBranch The GitHub branch from which you want to deploy.
  * @property githubOauthToken The GitHub OAuth token used by your pipeline to access your repository.
  * @property githubRepo The GitHub repository used as source for your pipeline.
@@ -31,7 +30,7 @@ import * as Null from "../../../imports/providers/null"
 export interface IPipelineConstructProps {
   awsProfile: string;
   codebuildProject: CodebuildProject;
-  currentRegion: DataAwsRegion;
+  currentRegionAsString: string;
   githubBranch: string;
   githubOauthToken: string;
   githubRepo: string;
@@ -197,9 +196,11 @@ export class PipelineConstruct extends Construct {
     // To avoid requiring an organization, we use a "null" resource
     // that will call the "register-webhook-with-third-party" command directly.
 
-    const registerWebhook = new Null.Resource(this, "register_webhook", {
+    const deregisterWebhook = new Null.Resource(this, "deregister_webhook", {
       triggers: {
         webhook: Token.asString(pipelineWebhook.id),
+        owner: `\${${pipeline.fqn}.stage.0.action.0.configuration.Owner}`,
+        repo: `\${${pipeline.fqn}.stage.0.action.0.configuration.Repo}`,
       },
 
       dependsOn: [
@@ -207,9 +208,31 @@ export class PipelineConstruct extends Construct {
       ],
     })
 
+    deregisterWebhook.addOverride(
+      "provisioner.local-exec.command",
+      `aws codepipeline deregister-webhook-with-third-party --webhook-name ${pipelineWebhook.name} --profile ${props.awsProfile} --region ${props.currentRegionAsString}`
+    )
+
+    deregisterWebhook.addOverride(
+      "provisioner.local-exec.when",
+      "destroy"
+    )
+
+    const registerWebhook = new Null.Resource(this, "register_webhook", {
+      triggers: {
+        webhook: Token.asString(pipelineWebhook.id),
+        owner: `\${${pipeline.fqn}.stage.0.action.0.configuration.Owner}`,
+        repo: `\${${pipeline.fqn}.stage.0.action.0.configuration.Repo}`,
+      },
+
+      dependsOn: [
+        deregisterWebhook,
+      ],
+    })
+
     registerWebhook.addOverride(
       "provisioner.local-exec.command",
-      `aws codepipeline register-webhook-with-third-party --webhook-name ${pipelineWebhook.name} --profile ${props.awsProfile} --region ${props.currentRegion.name}`
+      `aws codepipeline register-webhook-with-third-party --webhook-name ${pipelineWebhook.name} --profile ${props.awsProfile} --region ${props.currentRegionAsString}`
     )
 
     // ---
@@ -222,7 +245,7 @@ export class PipelineConstruct extends Construct {
 
     startPipeline.addOverride(
       "provisioner.local-exec.command",
-      `aws codepipeline start-pipeline-execution --name ${pipeline.name} --profile ${props.awsProfile} --region ${props.currentRegion.name}`
+      `aws codepipeline start-pipeline-execution --name ${pipeline.name} --profile ${props.awsProfile} --region ${props.currentRegionAsString}`
     )
   }
 }

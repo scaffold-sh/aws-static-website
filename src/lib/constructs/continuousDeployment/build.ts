@@ -165,7 +165,7 @@ export class BuildConstruct extends Construct {
 
     const buildProjectEnvironmentVariables = [{
       name: "AWS_S3_WEBSITE_BUCKET",
-      value: Token.asString(props.websiteS3Bucket.bucket)
+      value: Token.asString(props.websiteS3Bucket.bucket),
     }, {
       name: "AWS_CLOUDFRONT_DISTRIBUTION_ID",
       value: Token.asString(props.cloudfrontDistribution.id),

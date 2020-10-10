@@ -19,7 +19,8 @@ import PipelineConstruct from "./pipeline"
  * @property buildsEnvironmentVariables The builds environment variables as SSM parameters.
  * @property cloudfrontDistribution The CloudFront distribution used as CDN for your website.
  * @property currentAccount The AWS named profile used to create your infrastructure.
- * @property currentRegion The AWS region used to create your infrastructure.
+ * @property currentRegion The AWS region used to create your infrastructure as data object.
+ * @property currentRegionAsString The AWS region used to create your infrastructure as string.
  * @property githubBranch The GitHub branch from which you want to deploy.
  * @property githubOauthToken The GitHub OAuth token used by your pipeline to access your repository.
  * @property githubRepo The GitHub repository used as source for your pipeline.
@@ -36,6 +37,7 @@ export interface IContinuousDeploymentConstructProps {
   cloudfrontDistrib: CloudfrontDistribution;
   currentAccount: DataAwsCallerIdentity;
   currentRegion: DataAwsRegion;
+  currentRegionAsString: string;
   githubBranch: string;
   githubOauthToken: string;
   githubRepo: string;
@@ -82,7 +84,7 @@ export class ContinuousDeploymentConstruct extends Construct {
     new PipelineConstruct(this, "pipeline", {
       awsProfile: props.awsProfile,
       resourceNamesPrefix: props.resourceNamesPrefix,
-      currentRegion: props.currentRegion,
+      currentRegionAsString: props.currentRegionAsString,
       websiteS3Bucket: props.websiteS3Bucket,
       codebuildProject: build.codebuildProject,
       selfS3Bucket: pipelineS3Bucket,
