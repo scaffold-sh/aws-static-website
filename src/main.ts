@@ -119,6 +119,7 @@ class ScaffoldAWSStaticWebsite extends TerraformStack {
       resourceNamesPrefix,
       currentAccount,
       currentRegion,
+      currentRegionAsString: awsRegion,
       websiteS3Bucket: staticWebsite.websiteS3Bucket,
       cloudfrontDistrib: staticWebsite.cloudfrontDistribution,
       buildCommand,
