@@ -1,0 +1,4 @@
+/dist
+/out
+/.terraform
+/src/imports

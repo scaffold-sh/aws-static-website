@@ -162,7 +162,7 @@ These environment variables will be **automatically** configured each time you c
 
 <th scope="row">GITHUB_OAUTH_TOKEN</th>
 
-<td>The GitHub Oauth token that will be used by CodePipeline to pull your source code from your repository.</td>
+<td>The GitHub OAuth token that will be used by CodePipeline to pull your source code from your repository.</td>
 
 </tr>
 

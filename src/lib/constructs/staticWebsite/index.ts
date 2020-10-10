@@ -1,67 +1,99 @@
 import { Construct } from "constructs"
 import { TerraformProvider } from "cdktf"
 
-import { S3Bucket, CloudfrontDistribution } from "../../../imports/providers/aws"
-import SSLConstruct from "./ssl"
+import { CloudfrontDistribution, S3Bucket } from "../../../imports/providers/aws"
+import SslConstruct from "./ssl"
 
 import BucketConstruct from "./bucket"
-import CDNConstruct from "./cdn"
+import CdnConstruct from "./cdn"
 
-export interface StaticWebsiteConstructProps {
-  resourceNamesPrefix: string,
-  domainNames: string[],
-  hasBuildCommand: boolean,
-  AWSUSEast1Provider: TerraformProvider,
-  enableHTTPS: boolean
+/**
+ * Represents the properties of the static website construct.
+ * @property awsUsEast1Provider The AWS US East 1 provider required to create ACM certificates for CloudFront.
+ * @property domainNames The domain names that need to be covered by the ACM certificate.
+ * @property enableHttps Do HTTPS needs to be enabled?
+ * @property hasBuildCommand Do your website has a build command?
+ * @property resourceNamesPrefix An unique custom prefix used to avoid name colision with existing resources.
+ */
+export interface IStaticWebsiteConstructProps {
+  awsUsEast1Provider: TerraformProvider;
+  domainNames: string[];
+  enableHttps: boolean;
+  hasBuildCommand: boolean;
+  resourceNamesPrefix: string;
 }
 
-export interface DNSRecord {
-  name: string,
-  type: string,
-  value: string
+/**
+ * Represents a DNS record.
+ * @property name The name of the DNS record.
+ * @property type The type of the DNS record.
+ * @property value The value of the DNS record.
+ */
+export interface IDnsRecord {
+  name: string;
+  type: string;
+  value: string;
 }
 
+/**
+ * Represents the components required to host a static website on AWS.
+ * @class
+ * @extends Construct
+ */
 class StaticWebsiteConstruct extends Construct {
+  /**
+   * The CloudFront distribution used for your website.
+   */
+  readonly cloudfrontDistribution: CloudfrontDistribution
+
+  /**
+   * The DNS records that you need to set to validate your ACM certificate.
+   */
+  readonly sslValidationDnsRecords: IDnsRecord[]
+
+  /**
+   * The S3 bucket containing your website source code.
+   */
   readonly websiteS3Bucket: S3Bucket
-  readonly url: string
 
-  readonly SSLValidationDNSRecords: DNSRecord[]
-  readonly cloudfrontDistrib: CloudfrontDistribution
+  /**
+   * Creates a static website construct.
+   * @param scope The scope to attach the static website construct to.
+   * @param id An unique id used to distinguish constructs.
+   * @param props The static website construct properties.
+   */
+  constructor(scope: Construct, id: string, props: IStaticWebsiteConstructProps) {
+    super(scope, id)
 
-  constructor(scope: Construct, name: string, props: StaticWebsiteConstructProps) {
-    super(scope, name)
-
-    if (!props.domainNames.length) {
+    if (props.domainNames.length === 0) {
       throw new Error("You must specify at least one domain name")
     }
 
-    const ssl = new SSLConstruct(this, "ssl", {
+    const ssl = new SslConstruct(this, "ssl", {
       resourceNamesPrefix: props.resourceNamesPrefix,
       domainNames: props.domainNames,
-      AWSUSEast1Provider: props.AWSUSEast1Provider
+      awsUsEast1Provider: props.awsUsEast1Provider,
     })
 
     const bucket = new BucketConstruct(this, "bucket", {
       resourceNamesPrefix: props.resourceNamesPrefix,
-      hasBuildCommand: props.hasBuildCommand
+      hasBuildCommand: props.hasBuildCommand,
     })
 
     this.websiteS3Bucket = bucket.S3Bucket
 
-    const cdn = new CDNConstruct(this, "cdn", {
+    const cdn = new CdnConstruct(this, "cdn", {
       websiteS3Bucket: this.websiteS3Bucket,
-      ACMCertificate: ssl.ACMCertificate,
+      acmCertificate: ssl.acmCertificate,
       domainNames: props.domainNames,
       resourceNamesPrefix: props.resourceNamesPrefix,
       hasBuildCommand: props.hasBuildCommand,
-      enableHTTPS: props.enableHTTPS
+      enableHttps: props.enableHttps,
     })
 
-    this.cloudfrontDistrib = cdn.cloudfrontDistrib
+    this.cloudfrontDistribution = cdn.cloudfrontDistribution
 
-    this.url = `https://${this.cloudfrontDistrib.domainName}` 
-
-    this.SSLValidationDNSRecords = ssl.validationDNS
+    this.sslValidationDnsRecords = ssl.validationDns
   }
 }
 
