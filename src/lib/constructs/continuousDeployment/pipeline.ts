@@ -48,6 +48,11 @@ export interface IPipelineConstructProps {
  */
 export class PipelineConstruct extends Construct {
   /**
+   * The URL to the pipeline execution details on AWS.
+   */
+  readonly executionDetailsUrl: string
+
+  /**
    * Creates a pipeline construct.
    * @param scope The scope to attach the pipeline construct to.
    * @param id An unique id used to distinguish constructs.
@@ -157,6 +162,8 @@ export class PipelineConstruct extends Construct {
         props.codebuildProject,
       ],
     })
+
+    this.executionDetailsUrl = `https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${pipeline.name}/view?region=${props.currentRegionAsString}`
 
     // Fix https://github.com/hashicorp/terraform-cdk/issues/291
 

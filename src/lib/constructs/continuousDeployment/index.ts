@@ -55,6 +55,11 @@ export interface IContinuousDeploymentConstructProps {
  */
 export class ContinuousDeploymentConstruct extends Construct {
   /**
+   * The URL to the deployment pipeline execution details on AWS.
+   */
+  readonly pipelineExecutionDetailsUrl: string
+
+  /**
    * Creates a continuous deployment construct.
    * @param scope The scope to attach the continuous deployment construct to.
    * @param id An unique id used to distinguish constructs.
@@ -81,7 +86,7 @@ export class ContinuousDeploymentConstruct extends Construct {
       cloudfrontDistribution: props.cloudfrontDistrib,
     })
 
-    new PipelineConstruct(this, "pipeline", {
+    const pipeline = new PipelineConstruct(this, "pipeline", {
       awsProfile: props.awsProfile,
       resourceNamesPrefix: props.resourceNamesPrefix,
       currentRegionAsString: props.currentRegionAsString,
@@ -94,6 +99,8 @@ export class ContinuousDeploymentConstruct extends Construct {
       githubOauthToken: props.githubOauthToken,
       githubWebhookToken: props.githubWebhookToken,
     })
+
+    this.pipelineExecutionDetailsUrl = pipeline.executionDetailsUrl
   }
 }
 

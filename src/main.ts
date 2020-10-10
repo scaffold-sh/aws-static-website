@@ -113,7 +113,7 @@ class ScaffoldAWSStaticWebsite extends TerraformStack {
       enableHttps: enableHTTPS,
     })
 
-    new ContinuousDeploymentConstruct(this, "continuous_deployment", {
+    const continuousDeployment = new ContinuousDeploymentConstruct(this, "continuous_deployment", {
       awsProfile: awsProfile,
       buildsEnvironmentVariables: staticWebsite.buildsEnvironmentVariables,
       resourceNamesPrefix,
@@ -133,6 +133,10 @@ class ScaffoldAWSStaticWebsite extends TerraformStack {
 
     new TerraformOutput(this, "cloudfront_distribution_uri", {
       value: staticWebsite.cloudfrontDistribution.domainName,
+    })
+
+    new TerraformOutput(this, "pipeline_execution_details_url", {
+      value: continuousDeployment.pipelineExecutionDetailsUrl,
     })
 
     new TerraformOutput(this, "ssl_validation_dns_records", {
