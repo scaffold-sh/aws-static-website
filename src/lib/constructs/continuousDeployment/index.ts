@@ -5,6 +5,7 @@ import {
   DataAwsCallerIdentity,
   DataAwsRegion,
   S3Bucket,
+  SsmParameter,
 } from "../../../imports/providers/aws"
 
 import BuildConstruct from "./build"
@@ -14,7 +15,8 @@ import PipelineConstruct from "./pipeline"
  * Represents the properties of the continuous deployment construct.
  * @property awsProfile The AWS named profile used to create your infrastructure.
  * @property buildCommand The command used to build your website.
- * @property buildOutput The directory where the build command will output your website.
+ * @property buildOutputDir The directory where the build command will output your website.
+ * @property buildsEnvironmentVariables The builds environment variables as SSM parameters.
  * @property cloudfrontDistribution The CloudFront distribution used as CDN for your website.
  * @property currentAccount The AWS named profile used to create your infrastructure.
  * @property currentRegion The AWS region used to create your infrastructure.
@@ -29,7 +31,8 @@ import PipelineConstruct from "./pipeline"
 export interface IContinuousDeploymentConstructProps {
   awsProfile: string;
   buildCommand: string;
-  buildOutput: string;
+  buildOutputDir: string;
+  buildsEnvironmentVariables: SsmParameter[];
   cloudfrontDistrib: CloudfrontDistribution;
   currentAccount: DataAwsCallerIdentity;
   currentRegion: DataAwsRegion;
@@ -65,13 +68,14 @@ export class ContinuousDeploymentConstruct extends Construct {
     })
 
     const build = new BuildConstruct(this, "build", {
+      buildsEnvironmentVariables: props.buildsEnvironmentVariables,
       resourceNamesPrefix: props.resourceNamesPrefix,
       currentAccount: props.currentAccount,
       currentRegion: props.currentRegion,
       pipelineS3Bucket,
       websiteS3Bucket: props.websiteS3Bucket,
       buildCommand: props.buildCommand,
-      buildOutput: props.buildOutput,
+      buildOutputDir: props.buildOutputDir,
       cloudfrontDistribution: props.cloudfrontDistrib,
     })
 

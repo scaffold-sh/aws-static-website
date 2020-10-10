@@ -1,15 +1,19 @@
 import { Construct } from "constructs"
 import { TerraformProvider } from "cdktf"
 
-import { CloudfrontDistribution, S3Bucket } from "../../../imports/providers/aws"
+import { CloudfrontDistribution, S3Bucket, SsmParameter } from "../../../imports/providers/aws"
 import SslConstruct from "./ssl"
 
 import BucketConstruct from "./bucket"
 import CdnConstruct from "./cdn"
 
+import { EnvironmentVariables } from "../../../main"
+import EnvironmentVariablesConstruct from "./environmentVariables"
+
 /**
  * Represents the properties of the static website construct.
  * @property awsUsEast1Provider The AWS US East 1 provider required to create ACM certificates for CloudFront.
+ * @property buildsEnvironmentVariables The environment variables of your builds as "key => value" format.
  * @property domainNames The domain names that need to be covered by the ACM certificate.
  * @property enableHttps Do HTTPS needs to be enabled?
  * @property hasBuildCommand Do your website has a build command?
@@ -17,6 +21,7 @@ import CdnConstruct from "./cdn"
  */
 export interface IStaticWebsiteConstructProps {
   awsUsEast1Provider: TerraformProvider;
+  buildsEnvironmentVariables: EnvironmentVariables;
   domainNames: string[];
   enableHttps: boolean;
   hasBuildCommand: boolean;
@@ -41,6 +46,11 @@ export interface IDnsRecord {
  * @extends Construct
  */
 class StaticWebsiteConstruct extends Construct {
+  /**
+   * The builds environment variables as SSM parameters.
+   */
+  readonly buildsEnvironmentVariables: SsmParameter[]
+
   /**
    * The CloudFront distribution used for your website.
    */
@@ -69,11 +79,20 @@ class StaticWebsiteConstruct extends Construct {
       throw new Error("You must specify at least one domain name")
     }
 
+    const environmentVariables = new EnvironmentVariablesConstruct(this, "environment_variables", {
+      buildsEnvironmentVariables: props.buildsEnvironmentVariables,
+      resourceNamesPrefix: props.resourceNamesPrefix,
+    })
+
+    this.buildsEnvironmentVariables = environmentVariables.buildsEnvironmentVariables
+
     const ssl = new SslConstruct(this, "ssl", {
       resourceNamesPrefix: props.resourceNamesPrefix,
       domainNames: props.domainNames,
       awsUsEast1Provider: props.awsUsEast1Provider,
     })
+
+    this.sslValidationDnsRecords = ssl.validationDns
 
     const bucket = new BucketConstruct(this, "bucket", {
       resourceNamesPrefix: props.resourceNamesPrefix,
@@ -92,8 +111,6 @@ class StaticWebsiteConstruct extends Construct {
     })
 
     this.cloudfrontDistribution = cdn.cloudfrontDistribution
-
-    this.sslValidationDnsRecords = ssl.validationDns
   }
 }
 

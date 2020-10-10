@@ -20,6 +20,11 @@ import ContinuousDeploymentConstruct from "./lib/constructs/continuousDeployment
 import StaticWebsiteConstruct from "./lib/constructs/staticWebsite"
 
 /**
+ * Represents your build environment variables as "key => value" format.
+ */
+export type EnvironmentVariables = { [key: string]: string }
+
+/**
  * Represents the Scaffold AWS Static website infrastructure.
  * @class
  * @extends TerraformStack
@@ -53,7 +58,17 @@ class ScaffoldAWSStaticWebsite extends TerraformStack {
 
     const hasBuildCommand = Boolean(process.env.BUILD_COMMAND)
     const buildCommand = process.env.BUILD_COMMAND || "echo No build command"
-    const buildOutput = process.env.BUILD_OUTPUT_DIR || "."
+    const buildOutputDir = process.env.BUILD_OUTPUT_DIR || "."
+
+    // Environment variables that start with "BUILD_"
+    // will become your builds environment variables
+    const buildsEnvironmentVariables = Object
+      .keys(process.env)
+      .filter(environmentVariableKey => environmentVariableKey.startsWith("BUILD_") && !["BUILD_COMMAND", "BUILD_OUTPUT_DIR"].includes(environmentVariableKey))
+      .reduce((acc, environmentVariableKey) => {
+        acc[environmentVariableKey.replace(/^BUILD_/, "")] = process.env[environmentVariableKey] as string
+        return acc
+      }, {} as EnvironmentVariables)
 
     const awsS3BackendKey = process.env.SCAFFOLD_AWS_S3_BACKEND_KEY
     const awsS3BackendBucket = process.env.SCAFFOLD_AWS_S3_BACKEND_BUCKET
@@ -91,6 +106,7 @@ class ScaffoldAWSStaticWebsite extends TerraformStack {
 
     const staticWebsite = new StaticWebsiteConstruct(this, "static_website", {
       awsUsEast1Provider: AWSUSEast1Provider,
+      buildsEnvironmentVariables,
       domainNames,
       resourceNamesPrefix,
       hasBuildCommand,
@@ -99,13 +115,14 @@ class ScaffoldAWSStaticWebsite extends TerraformStack {
 
     new ContinuousDeploymentConstruct(this, "continuous_deployment", {
       awsProfile: awsProfile,
+      buildsEnvironmentVariables: staticWebsite.buildsEnvironmentVariables,
       resourceNamesPrefix,
       currentAccount,
       currentRegion,
       websiteS3Bucket: staticWebsite.websiteS3Bucket,
       cloudfrontDistrib: staticWebsite.cloudfrontDistribution,
       buildCommand,
-      buildOutput,
+      buildOutputDir: buildOutputDir,
       githubBranch,
       githubOauthToken,
       githubRepo,

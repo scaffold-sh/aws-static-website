@@ -4,8 +4,6 @@ import { readFileSync } from "fs"
 import { Token } from "cdktf"
 import { Construct } from "constructs"
 
-import * as YAML from "yaml"
-
 import {
   CloudfrontDistribution,
   CodebuildProject,
@@ -15,12 +13,15 @@ import {
   IamRole,
   IamRolePolicy,
   S3Bucket,
+  SsmParameter,
 } from "../../../imports/providers/aws"
+import escapeTemplateForTerraform from "../../../utils/escapeTemplateForTerraform"
 
 /**
  * Represents the properties of the build construct.
  * @property buildCommand The command used to build your website.
- * @property buildOutput The directory where the build command will output your website.
+ * @property buildOutputDir The directory where the build command will output your website.
+ * @property buildsEnvironmentVariables The builds environment variables as SSM parameters.
  * @property cloudfrontDistribution The CloudFront distribution used as CDN for your website.
  * @property currentAccount The AWS named profile used to create your infrastructure.
  * @property currentRegion The AWS region used to create your infrastructure.
@@ -30,7 +31,8 @@ import {
  */
 export interface IBuildConstructProps {
   buildCommand: string;
-  buildOutput: string;
+  buildOutputDir: string;
+  buildsEnvironmentVariables: SsmParameter[];
   cloudfrontDistribution: CloudfrontDistribution;
   currentAccount: DataAwsCallerIdentity;
   currentRegion: DataAwsRegion;
@@ -112,6 +114,14 @@ export class BuildConstruct extends Construct {
       }, {
         effect: "Allow",
         actions: [
+          "ssm:GetParameters",
+        ],
+        resources: [
+          `arn:aws:ssm:${Token.asString(props.currentRegion.name)}:${props.currentAccount.accountId}:parameter/${props.resourceNamesPrefix}/builds-env/*`,
+        ],
+      }, {
+        effect: "Allow",
+        actions: [
           "s3:GetObject",
           "s3:DeleteObject",
           "s3:PutObject",
@@ -138,14 +148,34 @@ export class BuildConstruct extends Construct {
       role: Token.asString(buildRole.id),
     })
 
-    const buildspec = readFileSync(resolve(__dirname, "..", "..", "..", "..", "templates", "buildspec.yml")).toString()
-    const parsedBuildSpec = YAML.parse(buildspec)
+    const buildEnvironmentVariables = props.buildsEnvironmentVariables.map(environmentVariable => {
+      return {
+        name: environmentVariable.tags!.name,
+        type: "PARAMETER_STORE",
+        // Explicit dependency to SSM parameters
+        value: `\${${environmentVariable.fqn}.name}`,
+      }
+    })
 
-    parsedBuildSpec.env.variables.AWS_S3_WEBSITE_BUCKET = props.websiteS3Bucket.bucket
-    parsedBuildSpec.env.variables.AWS_CLOUDFRONT_DISTRIB_ID = Token.asString(props.cloudfrontDistribution.id)
+    const buildspec = escapeTemplateForTerraform(
+      readFileSync(
+        resolve(__dirname, "..", "..", "..", "..", "templates", "buildspec.yml")
+      ).toString()
+    )
 
-    parsedBuildSpec.env.variables.BUILD_COMMAND = props.buildCommand
-    parsedBuildSpec.env.variables.BUILD_OUTPUT = props.buildOutput
+    const buildProjectEnvironmentVariables = [{
+      name: "AWS_S3_WEBSITE_BUCKET",
+      value: Token.asString(props.websiteS3Bucket.bucket)
+    }, {
+      name: "AWS_CLOUDFRONT_DISTRIBUTION_ID",
+      value: Token.asString(props.cloudfrontDistribution.id),
+    }, {
+      name: "BUILD_COMMAND",
+      value: props.buildCommand,
+    }, {
+      name: "BUILD_OUTPUT_DIR",
+      value: props.buildOutputDir,
+    }].concat(buildEnvironmentVariables)
 
     this.codebuildProject = new CodebuildProject(this, "codebuild_project", {
       artifacts: [{
@@ -160,8 +190,9 @@ export class BuildConstruct extends Construct {
       }],
       environment: [{
         computeType: "BUILD_GENERAL1_SMALL",
-        image: "aws/codebuild/standard:1.0",
+        image: "aws/codebuild/standard:4.0",
         type: "LINUX_CONTAINER",
+        environmentVariable: buildProjectEnvironmentVariables,
       }],
       logsConfig: [{
         cloudwatchLogs: [{
@@ -172,7 +203,7 @@ export class BuildConstruct extends Construct {
       name: `${props.resourceNamesPrefix}_codebuild_build_project`,
       serviceRole: buildRole.arn,
       source: [{
-        buildspec: YAML.stringify(parsedBuildSpec),
+        buildspec,
         type: "CODEPIPELINE",
       }],
       dependsOn: [
