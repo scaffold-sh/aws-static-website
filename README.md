@@ -5,7 +5,7 @@
 <h1 align="center">AWS Static Website</h1>
 
 <h4 align="center">
-  <a href="https://scaffold.sh/docs/infrastructures/aws/serverless-docker">Documentation</a> |
+  <a href="https://scaffold.sh/docs/infrastructures/aws/static-website">Documentation</a> |
   <a href="https://scaffold.sh">Website</a> |
   <a href="https://medium.com/scaffold">Blog</a> |
   <a href="https://twitter.com/scaffold_sh">Twitter</a> |
